@@ -14,12 +14,27 @@ namespace WandEnhancer.Core
         /// reading that works on a process that young.
         /// </summary>
         /// <returns>Zero while the process has no PEB yet.</returns>
-        public static IntPtr GetImageBase(IntPtr process)
+        public static IntPtr GetImageBase(IntPtr process, out string problem)
         {
-            IntPtr peb = GetPeb(process);
-            return peb == IntPtr.Zero
-                ? IntPtr.Zero
-                : ReadPointer(process, new IntPtr(peb.ToInt64() + ImageBaseOffset));
+            var info = new PROCESS_BASIC_INFORMATION();
+            int status = NtQueryInformationProcess(process, ProcessBasicInformation, ref info,
+                Marshal.SizeOf(info), out int returned);
+            problem = null;
+            if (status != 0 || info.PebBaseAddress == IntPtr.Zero)
+            {
+                problem = $"PEB query failed (NTSTATUS 0x{status:X8}, returned {returned} bytes, PEB {info.PebBaseAddress})";
+                return IntPtr.Zero;
+            }
+            var bytes = new byte[IntPtr.Size];
+            if (!ReadProcessMemory(process, new IntPtr(info.PebBaseAddress.ToInt64() + ImageBaseOffset),
+                    bytes, (UIntPtr)bytes.Length, out UIntPtr read) || read.ToUInt64() != (ulong)bytes.Length)
+            {
+                problem = $"image base read failed (win32 error {Marshal.GetLastWin32Error()}, read {read.ToUInt64()}/{bytes.Length} bytes)";
+                return IntPtr.Zero;
+            }
+            var imageBase = new IntPtr(BitConverter.ToInt64(bytes, 0));
+            if (imageBase == IntPtr.Zero) problem = "PEB contains a null image base";
+            return imageBase;
         }
 
         /// <summary>

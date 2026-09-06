@@ -118,5 +118,9 @@ Invoke-Step 'Test structural patch locators' {
     & (Join-Path $repoRoot 'scripts\test-patch-locators.ps1') -AssemblyPath $assemblyPath
 }
 
+Invoke-Step 'Test launcher process lifecycle' {
+    & (Join-Path $repoRoot 'scripts\test-launcher.ps1') -AssemblyPath $assemblyPath
+}
+
 Write-Host ''
 Write-Host "Build completed successfully ($Configuration)." -ForegroundColor Green
