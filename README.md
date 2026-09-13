@@ -120,7 +120,11 @@ Building from source on Windows requires a local development environment.
 2. Install the requirements above and make sure `pnpm` and `MSBuild` are available.
 3. Run `build.cmd` from Command Prompt or PowerShell.
 
-The build script installs dependencies, lints and type-checks the panel, builds production assets, runs web tests, builds WPF, and checks desktop patch state and structural JavaScript patches. Tests use temporary fixtures, not your Wand installation.
+The build script installs dependencies, lints and type-checks the panel, builds production assets, runs web tests, builds WPF, and checks desktop patch state, structural JavaScript patches and native launcher lifecycle. Tests use temporary fixtures, not your Wand installation.
+
+The launcher handles each Wand creation event before user code executes, using the image base supplied by Windows instead of querying a newly created child's PEB. It stays attached to Wand for late overlay renderers; other executables are suspended, detached, then resumed before executing user code. An ASAR rejection in a child now stops the failed Wand session and opens startup diagnostics. This does not change the Wand executable on disk.
+
+Run `pwsh -NoProfile -File scripts/test-launcher.ps1` on 64-bit Windows for the source-only launcher checks, or pass `-AssemblyPath` with a built patcher to test the release assembly. The checks cover late children, detaching a foreign executable, child integrity failure, native error diagnostics and the fuse sentinel guard. A successful fixture test still needs confirmation against the affected Wand version.
 
 Update notifications are excluded by default. To compile them in locally, run `build.cmd -EnableUpdateNotifications`. When compiled in, the check runs on Wand's launch (on by default, toggle in Settings), shows a native Windows notification for a newer release, and opens the release notes when clicked (the release page when only the launcher is running). It never downloads or installs an update.
 

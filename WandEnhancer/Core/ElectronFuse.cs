@@ -43,11 +43,22 @@ namespace WandEnhancer.Core
         /// <summary>Clears the fuse in a running process.</summary>
         public static bool ClearIn(IntPtr process, long stateRva, out string problem)
         {
+            IntPtr imageBase = ProcessInfo.GetImageBase(process, out problem);
+            return imageBase != IntPtr.Zero && ClearAt(process, imageBase, stateRva, out problem);
+        }
+
+        /// <summary>Uses the image base supplied by CREATE_PROCESS_DEBUG_EVENT, before user code runs.</summary>
+        public static bool ClearAt(IntPtr process, IntPtr imageBase, long stateRva, out string problem)
+        {
             problem = null;
-            IntPtr imageBase = ProcessInfo.GetImageBase(process);
             if (imageBase == IntPtr.Zero)
             {
-                problem = "it has no image base yet";
+                problem = "the process creation event supplied no image base";
+                return false;
+            }
+            if (stateRva < StateFromSentinel)
+            {
+                problem = "invalid fuse RVA";
                 return false;
             }
 
@@ -81,14 +92,26 @@ namespace WandEnhancer.Core
                 return false;
             }
 
-            bool written = WriteProcessMemory(process, target, new[] { StateRemoved }, (UIntPtr)1, out _);
+            bool written = WriteProcessMemory(process, target, new[] { StateRemoved }, (UIntPtr)1, out UIntPtr count)
+                           && count.ToUInt64() == 1;
             if (!written)
             {
                 // Preserve the error before restoring memory protection.
                 problem = $"the write was refused (win32 error {Marshal.GetLastWin32Error()})";
             }
 
-            VirtualProtectEx(process, target, (UIntPtr)1, previous, out _);
+            if (!VirtualProtectEx(process, target, (UIntPtr)1, previous, out _))
+            {
+                problem = $"memory protection could not be restored (win32 error {Marshal.GetLastWin32Error()})";
+                return false;
+            }
+            if (written)
+            {
+                var verify = new byte[1];
+                written = ReadProcessMemory(process, target, verify, (UIntPtr)1, out count)
+                          && count.ToUInt64() == 1 && verify[0] == StateRemoved;
+                if (!written) problem = "fuse write verification failed";
+            }
             return written;
         }
 
