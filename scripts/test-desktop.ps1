@@ -55,6 +55,22 @@ $resources = Join-Path $install 'resources'
 [IO.Directory]::CreateDirectory($resources) | Out-Null
 
 try {
+    # An update may touch the old Squirrel directory after creating the new one.
+    # Selection must follow the numeric app version, not directory timestamps.
+    $versionRoot = Join-Path $scratch 'versions'
+    $olderInstall = Join-Path $versionRoot 'app-12.53.0'
+    $newerInstall = Join-Path $versionRoot 'app-12.54.1'
+    foreach ($candidate in $olderInstall, $newerInstall) {
+        [IO.Directory]::CreateDirectory((Join-Path $candidate 'resources')) | Out-Null
+        [IO.File]::WriteAllText((Join-Path $candidate 'Wand.exe'), '')
+        [IO.File]::WriteAllText((Join-Path $candidate 'resources/app.asar'), '')
+    }
+    [IO.Directory]::SetLastWriteTime($olderInstall, [DateTime]::Now)
+    [IO.Directory]::SetLastWriteTime($newerInstall, [DateTime]::Now.AddDays(-1))
+    $installsType = $assembly.GetType('WandEnhancer.Utils.WeModInstalls', $true)
+    $selectedInstall = $installsType.GetMethod('FindLatestWeMod').Invoke($null, [object[]]@([string]$versionRoot))
+    Assert-Equal ([IO.Path]::GetFileName($selectedInstall.RootDirectory)) 'app-12.54.1' 'Newest numeric Wand version'
+
     $enhancerType = $assembly.GetType('WandEnhancer.Core.Enhancer', $true)
     $isPatched = $enhancerType.GetMethod('IsPatched')
     $hasBackup = $enhancerType.GetMethod('HasBackup')
