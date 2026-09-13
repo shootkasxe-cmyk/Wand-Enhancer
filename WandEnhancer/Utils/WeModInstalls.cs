@@ -124,7 +124,7 @@ namespace WandEnhancer.Utils
         {
             var appFolders = Directory.EnumerateDirectories(root)
                 .Select(folderPath => new DirectoryInfo(folderPath))
-                .Where(dirInfo => Regex.IsMatch(dirInfo.Name, @"^app-\\w+"))
+                .Where(dirInfo => Regex.IsMatch(dirInfo.Name, @"^app-\w+"))
                 .Select(dirInfo =>
                 {
                     var versionText = dirInfo.Name.Substring("app-".Length);
