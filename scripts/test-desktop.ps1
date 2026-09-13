@@ -68,7 +68,8 @@ try {
     [IO.Directory]::SetLastWriteTime($olderInstall, [DateTime]::Now)
     [IO.Directory]::SetLastWriteTime($newerInstall, [DateTime]::Now.AddDays(-1))
     $installsType = $assembly.GetType('WandEnhancer.Utils.WeModInstalls', $true)
-    $selectedInstall = $installsType.GetMethod('FindLatestWeMod').Invoke($null, [object[]]@([string]$versionRoot))
+    $findLatestArguments = [object[]]@([string]$versionRoot)
+    $selectedInstall = $installsType.GetMethod('FindLatestWeMod').Invoke($null, $findLatestArguments)
     Assert-Equal ([IO.Path]::GetFileName($selectedInstall.RootDirectory)) 'app-12.54.1' 'Newest numeric Wand version'
 
     $enhancerType = $assembly.GetType('WandEnhancer.Core.Enhancer', $true)
