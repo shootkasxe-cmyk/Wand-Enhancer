@@ -124,14 +124,25 @@ namespace WandEnhancer.Utils
         {
             var appFolders = Directory.EnumerateDirectories(root)
                 .Select(folderPath => new DirectoryInfo(folderPath))
-                .Where(dirInfo => Regex.IsMatch(dirInfo.Name, @"^app-\w+"))
-                .Select(dirInfo => new
+                .Where(dirInfo => Regex.IsMatch(dirInfo.Name, @"^app-\\w+"))
+                .Select(dirInfo =>
                 {
-                    Name = dirInfo.Name,
-                    Path = dirInfo.FullName,
-                    LastModified = dirInfo.LastWriteTime
+                    var versionText = dirInfo.Name.Substring("app-".Length);
+                    var hasVersion = Version.TryParse(versionText, out var version);
+                    return new
+                    {
+                        Path = dirInfo.FullName,
+                        HasVersion = hasVersion,
+                        Version = version,
+                        LastModified = dirInfo.LastWriteTime
+                    };
                 })
-                .OrderByDescending(item => item.LastModified)
+                // Squirrel can leave an older app directory with a newer timestamp.
+                // Prefer the greatest parsed version; retain timestamp fallback for
+                // legacy/non-versioned folder names.
+                .OrderByDescending(item => item.HasVersion)
+                .ThenByDescending(item => item.Version)
+                .ThenByDescending(item => item.LastModified)
                 .ToList();
             
 
